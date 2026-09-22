@@ -1,6 +1,6 @@
 import { createServer } from "node:net";
 import { chmodSync } from "node:fs";
-import { EFFORTS } from "./jev.mjs";
+import { eligibleRoutes } from "./jev.mjs";
 import { budgetToolOutputs } from "./tool-output-budget.mjs";
 
 export function frame(value) {
@@ -21,7 +21,7 @@ export class TurnEvaluator {
     this.pending = null;
   }
   async handle(p, signal) {
-    if (p.protocol !== 3 || !Number.isSafeInteger(p.step))
+    if (p.protocol !== 4 || !Number.isSafeInteger(p.step))
       throw new Error("Invalid checkpoint protocol");
     if (p.type === "applied") {
       const pending = this.pending;
@@ -30,6 +30,7 @@ export class TurnEvaluator {
         p.threadId !== this.threadId ||
         p.turnId !== this.turnId ||
         p.step !== pending.step ||
+        p.model !== pending.targetModel ||
         p.effort !== pending.effort ||
         p.confirmation !== "native_step_context_captured"
       ) {
@@ -42,6 +43,17 @@ export class TurnEvaluator {
         type: "decision",
         confirmation: p.confirmation,
       });
+      if (this.previousModel === undefined || pending.previousModel !== p.model) {
+        this.record({
+          type: this.previousModel === undefined ? "model_selected" : "model_changed",
+          threadId: p.threadId,
+          turnId: p.turnId,
+          step: p.step,
+          from: pending.previousModel === p.model ? null : pending.previousModel,
+          to: p.model,
+          confirmation: p.confirmation,
+        });
+      }
       if (
         this.previousEffort === undefined ||
         pending.previousEffort !== p.effort
@@ -61,10 +73,12 @@ export class TurnEvaluator {
         });
       }
       this.previousEffort = p.effort;
+      this.previousModel = p.model;
+      this.model = p.model;
       this.lastStep = p.step;
       this.remaining--;
       this.pending = null;
-      return { protocol: 3, type: "recorded", step: p.step };
+      return { protocol: 4, type: "recorded", step: p.step };
     }
     if (
       p.type !== "checkpoint" ||
@@ -75,9 +89,7 @@ export class TurnEvaluator {
       (this.threadId &&
         (p.threadId !== this.threadId || p.turnId !== this.turnId)) ||
       typeof p.model !== "string" ||
-      !Array.isArray(p.supportedEfforts) ||
-      !p.supportedEfforts.length ||
-      !p.supportedEfforts.every((effort) => EFFORTS.includes(effort)) ||
+      !Array.isArray(p.models) ||
       !Number.isSafeInteger(p.failedToolCount) ||
       p.failedToolCount < this.failures ||
       !Number.isSafeInteger(p.inputRevision) ||
@@ -90,18 +102,21 @@ export class TurnEvaluator {
       p.context.recentToolCalls.length > 6
     )
       throw new Error("Invalid native checkpoint");
+    const routes = eligibleRoutes(p.models);
     this.threadId = p.threadId;
     this.turnId = p.turnId;
     const newToolFailures = p.failedToolCount - this.failures;
     if (
       newToolFailures ||
       p.model !== this.model ||
+      JSON.stringify(routes) !== this.routes ||
       p.inputRevision !== this.inputRevision ||
       p.context.latestUserPrompt !== this.latestPrompt ||
       (this.previousEffort && p.currentEffort !== this.previousEffort)
     )
       this.remaining = 0;
     this.model = p.model;
+    this.routes = JSON.stringify(routes);
     this.latestPrompt = p.context.latestUserPrompt;
     this.inputRevision = p.inputRevision;
     this.failures = p.failedToolCount;
@@ -114,7 +129,7 @@ export class TurnEvaluator {
       );
       const state = {
         model: p.model,
-        supportedEfforts: p.supportedEfforts,
+        models: p.models,
         latestUserPrompt: p.context.latestUserPrompt,
         originalTask:
           p.context.originalTurnPrompt === p.context.latestUserPrompt
@@ -127,6 +142,7 @@ export class TurnEvaluator {
         omittedOlderToolCalls: p.context.omittedOlderToolCalls,
         step: p.step,
         previousEffort: p.currentEffort,
+        previousModel: p.model,
         newToolFailures,
       };
       contextStats = {
@@ -161,7 +177,7 @@ export class TurnEvaluator {
     signal?.throwIfAborted();
     const d = this.decision;
     if (
-      !p.supportedEfforts.includes(d.effort) ||
+      !routes.some((route) => route.model === d.targetModel && route.effort === d.effort) ||
       ![1, 2, 5, 10].includes(d.leaseSteps)
     ) {
       throw new Error(
@@ -172,8 +188,8 @@ export class TurnEvaluator {
       threadId: p.threadId,
       turnId: p.turnId,
       step: p.step,
-      model: p.model,
       ...d,
+      previousModel: p.model,
       previousEffort: p.currentEffort,
       reused,
       newToolFailures,
@@ -186,11 +202,12 @@ export class TurnEvaluator {
       usage: reused ? null : d.usage,
     };
     return {
-      protocol: 3,
+      protocol: 4,
       type: "decision",
       threadId: p.threadId,
       turnId: p.turnId,
       step: p.step,
+      targetModel: d.targetModel,
       effort: d.effort,
       leaseSteps: d.leaseSteps,
       evaluatorMs: Math.round(reused ? 0 : d.jevMs),

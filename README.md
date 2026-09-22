@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <strong>Adaptive Reasoning Effort Selection for GPT-6 Astra while your Codex task runs.</strong>
+  <strong>Adaptive model and reasoning selection across GPT-6 Astra, Sol, and Luna.</strong>
 </p>
 
 <p align="center">
@@ -18,9 +18,9 @@
   <a href="docs/troubleshooting.md">Troubleshooting</a>
 </p>
 
-**Astra-Ares is the first tool to let Jev adapt GPT-6 Astra's reasoning effort while a Codex task runs.** The goal is to reduce token usage by matching reasoning depth to the next step. Jev reads bounded task context, chooses how much Astra should think next, and decides how many generations that effort should last. Codex applies the choice while work continues.
+**Astra-Ares lets Jev choose a GPT-6 model and reasoning effort before each Codex generation.** Jev reads bounded task context, chooses an available Astra, Sol, or Luna route, and decides how many generations to retain that choice. Codex applies the pair while work continues.
 
-This is possible because **Astra can change reasoning effort without invalidating the original prompt prefix used by its cache**. Ares uses that native mechanism, keeping the same model, conversation, and direct OpenAI connection. [How Astra preserves the prefix →](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation)
+The model catalog supplies each model's available reasoning levels. Jev only sees supported pairs through Max. **Ultra is available only when you explicitly select Astra or Sol outside Jev-Auto.** Codex retains its native conversation, tools, approvals, and direct OpenAI connection.
 
 ## Get started
 
@@ -58,7 +58,7 @@ ares configure
 
 Paste the key into the hidden prompt. **OpenRouter is the default for new installs**. The key is saved in your private user configuration, outside the repository.
 
-Astra uses your existing **Codex login with access to Astra**, separately from the Jev key. If needed, sign in with `astra-ares login`. [Other Jev providers and environment variables →](docs/configuration.md)
+The GPT-6 models use your existing **Codex login**, separately from the Jev key. If needed, sign in with `astra-ares login`. [Other Jev providers and environment variables →](docs/configuration.md)
 
 ### 3. Start Codex
 
@@ -66,12 +66,12 @@ Astra uses your existing **Codex login with access to Astra**, separately from t
 astra-ares
 ```
 
-The normal Codex terminal opens. In `/model`, select **Astra-Jev** — the native picker entry for Astra with Jev routing. New Ares profiles select it by default. Give Codex a task and work normally.
+The normal Codex terminal opens. In `/model`, select **Jev-Auto** to let Jev choose among Astra, Sol, and Luna. New Ares profiles select it by default. Existing `Astra-Jev` sessions continue to work and now use the same automatic routing.
 
-Confirmed effort changes appear directly in the transcript. Example display:
+Confirmed model and effort changes appear directly in the transcript. Example display:
 
 ```text
-Jev  LOW → HIGH  ✓ APPLIED
+Jev  gpt-6-luna / LOW → gpt-6-sol / HIGH  ✓ APPLIED
      Step 3 · next 2 generation(s) · 321 ms
 ```
 
@@ -87,7 +87,7 @@ ares doctor                    # check installation and configuration locally
 ares doctor --probe            # make one small, billable Jev request
 ```
 
-Codex still owns the terminal UI, tools, approvals, cancellation, and history. Choose ordinary Astra or another model in `/model` to work without Jev routing. Ares uses a separate Codex profile; resuming refers to that profile's sessions.
+Codex still owns the terminal UI, tools, approvals, cancellation, and history. Choose an ordinary model in `/model` to work without Jev routing or to select Ultra manually where supported. Ares uses a separate Codex profile; resuming refers to that profile's sessions.
 
 ## How it works
 
@@ -95,14 +95,14 @@ Codex still owns the terminal UI, tools, approvals, cancellation, and history. C
 Your task + public progress + recent tool results
                        │
                        ▼
-               Jev chooses effort
+           Jev chooses model + effort
              and 1 / 2 / 5 / 10 steps
                        │
                        ▼
            Codex applies native settings
                        │
                        ▼
-           Astra generates → tools run
+         Chosen model generates → tools run
                        │
               repeat when due
 ```
@@ -121,13 +121,13 @@ Jev also selects how long to keep its choice. If it selects ten generations, Are
 | Combined result text for each call                        | **1,000 local tokens**, with explicit head/tail truncation       |
 | Complete evaluator request                                | **28,000 local-token guard**; oversized requests stop explicitly |
 
-These limits apply to **Jev's view**. Astra keeps its native conversation. The local tokenizer is a budget estimate, not Jev's exact tokenizer. This bounded task context is sent to your selected Jev provider; [configuration and logs](docs/configuration.md) explain what is stored.
+These limits apply to **Jev's view**. Codex keeps its native conversation. The local tokenizer is a budget estimate, not Jev's exact tokenizer. This bounded task context is sent to your selected Jev provider; [configuration and logs](docs/configuration.md) explain what is stored.
 
-### Why Astra
+### Native model changes
 
-Astra supports `configuration_update` between generations. Codex retains the original request-level effort and prompt prefix, and records the new effort in conversation history. That allows effort changes while preserving the prefix for prompt-cache reuse. Normal cache eligibility and retention rules still apply.
+Codex captures the selected model's instructions, tools, and reasoning effort before each generation. Effort changes on a single model use the native `configuration_update` path. A model change starts a new model request context while retaining the conversation history. [OpenAI reasoning guidance →](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation)
 
-The bridge stays outside Astra's network path: **Codex talks directly to OpenAI**. A new decision adds a Jev round trip and local checkpoint processing; an active lease needs only the local checkpoint. Native fixture tests verify settings application and prefix preservation. Workload cache hit rates and savings against fixed effort have not yet been measured. [Architecture →](docs/architecture.md)
+The bridge stays outside the model network path: **Codex talks directly to OpenAI**. A new decision adds a Jev round trip and local checkpoint processing; an active lease needs only the local checkpoint. [Architecture →](docs/architecture.md)
 
 ## If something fails
 
@@ -141,7 +141,7 @@ Run `ares doctor`, then `ares doctor --probe` to check the provider. Logs live i
 npm ci
 npm test
 # Native integration fixtures also need Bun and the patched binary:
-JEV_TEST_BINARY="$HOME/.local/share/astra-ares/bin/codex" npm run test:native
+JEV_TEST_BINARY="/path/to/new/patched/codex" npm run test:native
 ```
 
 The patch and upstream source checksums are pinned in [patches/upstream.json](patches/upstream.json). The [architecture](docs/architecture.md) explains the native checkpoint, leases, and acknowledgements.

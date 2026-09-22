@@ -1,6 +1,6 @@
 # Installation
 
-Astra-Ares consists of a pinned, patched Codex CLI and a local Jev bridge. The patch adds a checkpoint before model generation and a confirmed-effort notification. It uses Codex's existing live settings mechanism. This is a native CLI extension, not an installable Codex plugin or an Astra API proxy.
+Astra-Ares consists of a pinned, patched Codex CLI and a local Jev bridge. The patch adds a checkpoint before model generation and a confirmed model/effort notification. It uses Codex's existing live settings mechanism. This is a native CLI extension, not an installable Codex plugin or an API proxy.
 
 ## From a source checkout
 
@@ -46,7 +46,7 @@ The binary must contain the compatible native checkpoint, report the pinned Code
 
 Ares creates its own Codex home under `~/.local/share/astra-ares/codex-home`. It reuses an existing Codex `auth.json` via a symlink when available. Otherwise run `astra-ares login`.
 
-Existing custom profiles can be selected with an absolute `codexHome` in the configuration. This is useful when continuing sessions from the earlier Jev prototype. The model picker entry remains **Astra-Jev** in the pinned native build: it resolves to Astra with Jev routing.
+Existing custom profiles can be selected with an absolute `codexHome` in the configuration. This is useful when continuing sessions from the earlier Jev prototype. The picker entry is **Jev-Auto**; saved `Astra-Jev` selections still enable the same automatic routing.
 
 ## Update
 

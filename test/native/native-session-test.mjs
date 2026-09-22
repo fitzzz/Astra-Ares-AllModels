@@ -138,6 +138,7 @@ bridge = new Bridge({
       }
       if (phase === "error") throw new Error("Fixture Jev HTTP 429");
       return {
+        targetModel: state.model,
         ...(phase === "repair"
           ? choices.shift()
           : {

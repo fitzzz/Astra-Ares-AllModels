@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 const binary = process.env.JEV_TEST_BINARY;
 if (!binary) throw new Error("Set JEV_TEST_BINARY to the patched Codex binary");
+const outputRoot = resolve(process.env.JEV_TEST_OUTPUT_DIR ?? "work");
 for (const name of ["context", "session", "selection"]) {
-  const out = resolve(`work/test-${name}-${Date.now()}`);
+  const out = join(outputRoot, `test-${name}-${Date.now()}`);
   mkdirSync(out, { recursive: true });
   const child = spawn(
     "bun",

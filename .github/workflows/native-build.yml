@@ -4,13 +4,20 @@ permissions:
   contents: read
 jobs:
   native:
-    runs-on: macos-14
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libcap-dev
       - run: npm ci --ignore-scripts
       - run: node bin/ares.mjs setup
       - run: node bin/astra-ares.mjs --version

@@ -21,7 +21,7 @@ export function verifyBinary(binary) {
   const bytes = readFileSync(binary);
   for (const marker of [
     "CODEX_STEP_CONTROLLER_CONTEXT_V3",
-    "Astra-Jev requires its bridge",
+    "Jev-Auto requires its bridge",
   ]) {
     if (!bytes.includes(Buffer.from(marker)))
       throw new Error(
@@ -51,7 +51,7 @@ export async function launch(args, config = loadConfig()) {
   if (!existsSync(join(home, "config.toml")))
     writeFileSync(
       join(home, "config.toml"),
-      'model = "Astra-Jev"\nmodel_provider = "openai"\n',
+      'model = "Jev-Auto"\nmodel_provider = "openai"\n',
       { mode: 0o600 },
     );
   const auth = join(

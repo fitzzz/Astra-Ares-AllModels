@@ -24,7 +24,7 @@ After upgrading the local bridge, quit and relaunch `astra-ares resume --last`; 
 
 ## Native warning items during resume
 
-The pinned native build retains the `Astra-Jev` model name and the prototype's `Launch codex-jev` hint if started without its bridge. For Astra-Ares, start through `astra-ares`; launching the native executable directly does not start the bridge.
+The native build requires the Jev bridge for `Jev-Auto` and the legacy `Astra-Jev` alias. Start through `astra-ares`; launching the native executable directly does not start the bridge.
 
 Codex's JSON output represents some native warnings as `item.type: error`. The experimental-feature notice is expected for `step_model_switching` and `reasoning_effort_override`. The pinned build also compares the recorded logical name `Astra-Jev` with its resolved base `gpt-6-astra` on resume, producing a cosmetic model-change warning even when this is the same intended model. These notices do not establish a failed turn; check `turn.failed`, process exit status, and the bridge's `controller_error`/`provider_error` records. The false alias comparison remains a known diagnostic limitation.
 

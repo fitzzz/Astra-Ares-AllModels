@@ -59,4 +59,4 @@ Choose only one of `apiKey`, `apiKeyEnv`, and `apiKeyFile`. With none set, the p
 
 Decision logs contain request sizes, provider codes and request IDs, retry delays, usage, latency, and native application confirmations. They omit the API key and full task/history. Codex itself retains its normal native conversation history in its profile.
 
-`evaluation_requested` records an evaluation attempt. `decision` with `native_step_context_captured` records successful native application. `reused: true` means the current lease was reused without another Jev request. Errors stop the turn explicitly and are described in [troubleshooting](troubleshooting.md).
+`evaluation_requested` records an evaluation attempt. `decision` with `native_step_context_captured` records the actual model and effort captured for the next generation. `model_selected`, `model_changed`, `effort_selected`, and `effort_changed` record visible route changes. `reused: true` means the current pair lease was reused without another Jev request. Errors stop the turn explicitly and are described in [troubleshooting](troubleshooting.md).

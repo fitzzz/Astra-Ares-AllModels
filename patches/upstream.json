@@ -2,10 +2,10 @@
   "repository": "https://github.com/openai/codex",
   "commit": "4607249e430dac1c961df4dc615beae88e33cec8",
   "release": "rust-v0.155.0-alpha.9.2",
-  "patchSha256": "eed0ae3b455ebc39517c4547fa2980de29fbefcdb6c534de46d911288082bba6",
+  "patchSha256": "0d3396f513705efb953e3f65936bf7991d75af516cb2803d14ebb153cf33c34d",
   "sourceArchiveSha256": "d9478b4d5bb98d4f6eaa6f57dc51b759f0fc70ebd29614f6b1edf7979564ebd2",
   "version": "0.155.0-alpha.9.2",
-  "contextProtocol": 3,
+  "contextProtocol": 4,
   "helpers": {
     "aarch64-apple-darwin": {
       "url": "https://github.com/openai/codex/releases/download/rust-v0.155.0-alpha.9.2/codex-code-mode-host-aarch64-apple-darwin.tar.gz",
