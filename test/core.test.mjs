@@ -37,10 +37,10 @@ const state = {
   publicNotes: [],
   recentToolCalls: [],
 };
-test("Jev sees only advertised GPT-6 routes through Max", () => {
+test("Jev sees only advertised GPT-6 routes through XHigh", () => {
   const request = decisionRequest(state);
   const choices = Object.keys(request.questions.route.criteria);
-  assert(choices.includes("gpt-6-luna:max"));
+  assert(!choices.includes("gpt-6-luna:max"));
   assert(choices.includes("gpt-6-sol:medium"));
   assert(choices.includes("gpt-6-astra:high"));
   assert(!choices.some((choice) => choice.endsWith(":ultra")));
@@ -52,6 +52,7 @@ test("Jev cannot return a pair absent from this checkpoint", () => {
   for (const route of [
     "gpt-6-sol:high",
     "gpt-6-astra:ultra",
+    "gpt-6-luna:max",
     "gpt-6-luna:none",
   ])
     assert.throws(

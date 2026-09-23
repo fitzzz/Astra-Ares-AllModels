@@ -14769,10 +14769,10 @@ index 9a4e461..cdc8954 100644
          // and active_turn; no asynchronous preparation runs under these locks.
 diff --git c/codex-rs/core/src/session/step_controller.rs w/codex-rs/core/src/session/step_controller.rs
 new file mode 100644
-index 0000000..17dc031
+index 0000000..41658fd
 --- /dev/null
 +++ w/codex-rs/core/src/session/step_controller.rs
-@@ -0,0 +1,396 @@
+@@ -0,0 +1,395 @@
 +//! Opt-in evaluator bridge for every native CLI frontend. The bridge selects an
 +//! model and effort; core applies both through the live settings path.
 +
@@ -15009,7 +15009,6 @@ index 0000000..17dc031
 +                            | ReasoningEffort::Medium
 +                            | ReasoningEffort::High
 +                            | ReasoningEffort::XHigh
-+                            | ReasoningEffort::Max
 +                    )
 +                })
 +                .collect::<Vec<_>>();
@@ -15026,7 +15025,7 @@ index 0000000..17dc031
 +        }
 +        if models.is_empty() {
 +            return Err(failure(
-+                "no available GPT-6 Astra, Sol, or Luna route with supported effort through Max",
++                "no available GPT-6 Astra, Sol, or Luna route with supported effort through XHigh",
 +            ));
 +        }
 +        if self.connection.is_none() {
@@ -15716,6 +15715,91 @@ index 0000000..323a6f7
 +Or run codex-jev resume and select My task.
 +");
 +}
+diff --git c/codex-rs/tui/src/app/session_lifecycle.rs w/codex-rs/tui/src/app/session_lifecycle.rs
+index f816316..6681e99 100644
+--- c/codex-rs/tui/src/app/session_lifecycle.rs
++++ w/codex-rs/tui/src/app/session_lifecycle.rs
+@@ -941,6 +941,15 @@ impl App {
+             &self.cli_kv_overrides,
+             &self.harness_overrides,
+         );
++        if session_start_source == Some(ThreadStartSource::Clear)
++            && self.chat_widget.current_model() == codex_protocol::openai_models::JEV_AUTO_MODEL
++        {
++            config.model = Some(codex_protocol::openai_models::JEV_AUTO_MODEL.to_string());
++            config.model_reasoning_effort = self
++                .chat_widget
++                .current_collaboration_mode()
++                .reasoning_effort();
++        }
+         let summary = session_summary(
+             self.chat_widget.token_usage(),
+             self.chat_widget.thread_id(),
+diff --git c/codex-rs/tui/src/app/tests/new_session_tests.rs w/codex-rs/tui/src/app/tests/new_session_tests.rs
+index 0ee704d..0c98984 100644
+--- c/codex-rs/tui/src/app/tests/new_session_tests.rs
++++ w/codex-rs/tui/src/app/tests/new_session_tests.rs
+@@ -187,6 +187,60 @@ async fn replacement_uses_server_defaults_and_preserves_explicit_launch_settings
+     Ok(())
+ }
+ 
++#[tokio::test]
++async fn clear_keeps_jev_auto_selected_over_project_model_defaults() -> Result<()> {
++    let (mut app, _events, _ops) = make_test_app_with_channels().await;
++    let server_home = tempdir()?;
++    let client_home = tempdir()?;
++    std::fs::write(
++        server_home.path().join("work.config.toml"),
++        "model = \"gpt-6-luna\"\nmodel_reasoning_effort = \"high\"\n",
++    )?;
++    std::fs::write(
++        client_home.path().join("config.toml"),
++        "model = \"Jev-Auto\"\nmodel_reasoning_effort = \"low\"\n",
++    )?;
++    let mut server_config = app.config.clone();
++    server_config.codex_home = server_home.path().to_path_buf().abs();
++    server_config.sqlite = SqliteConfig::new_for_testing(server_home.path().abs());
++    let (mut server, requests, proxy) = start_recording_app_server_with_history(
++        &server_config,
++        HistoryCapabilities::Current,
++        /*blocked_thread_list*/ None,
++        /*failed_thread_name*/ None,
++        crate::app_server_session::ThreadParamsMode::Remote,
++        LoaderOverrides {
++            user_config_path: Some(server_home.path().join("work.config.toml").abs()),
++            ..LoaderOverrides::default()
++        },
++    )
++    .await?;
++    server = server.with_remote_cwd_override(Some(server_config.cwd.to_path_buf()));
++    server.bootstrap(&server_config).await?;
++    app.config.codex_home = client_home.path().to_path_buf().abs();
++    app.config.sqlite = SqliteConfig::new_for_testing(client_home.path().abs());
++    app.chat_widget.set_model("Jev-Auto");
++    app.chat_widget
++        .set_reasoning_effort(Some(ReasoningEffortConfig::Low));
++    let mut tui = crate::tui::test_support::make_test_tui()?;
++    app.start_fresh_session_with_summary_hint(
++        &mut tui,
++        &mut server,
++        Some(ThreadStartSource::Clear),
++        /*initial_user_message*/ None,
++        /*new_thread_name*/ None,
++    )
++    .await;
++    let starts = recorded_params(&requests, "thread/start");
++    assert_eq!(starts.len(), 1);
++    assert_eq!(starts[0]["model"], "Jev-Auto");
++    assert_eq!(starts[0]["config"]["model_reasoning_effort"], "low");
++    assert_eq!(app.chat_widget.current_model(), "Jev-Auto");
++    server.shutdown().await?;
++    proxy.await??;
++    Ok(())
++}
++
+ #[tokio::test]
+ async fn replacement_failure_keeps_current_task_and_restores_input() -> Result<()> {
+     for fail_read in [false, true] {
 diff --git c/codex-rs/tui/src/chatwidget/model_popups.rs w/codex-rs/tui/src/chatwidget/model_popups.rs
 index 2155103..3a19cd3 100644
 --- c/codex-rs/tui/src/chatwidget/model_popups.rs

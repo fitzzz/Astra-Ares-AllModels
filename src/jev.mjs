@@ -3,7 +3,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createHash } from "node:crypto";
 import { ProviderError, responseError, retryDelay } from "./provider-error.mjs";
 
-const EFFORTS = ["none", "low", "medium", "high", "xhigh", "max"];
+const EFFORTS = ["none", "low", "medium", "high", "xhigh"];
 const ROUTE_MODELS = ["gpt-6-luna", "gpt-6-sol", "gpt-6-astra"];
 const MODEL_DESCRIPTIONS = {
   "gpt-6-luna": "Focused, well specified coding and routine next steps.",
@@ -20,7 +20,6 @@ const DESCRIPTIONS = {
   high: "Resolve material uncertainty across interacting code paths, competing explanations, or design constraints. The next decision needs broad understanding or careful correctness analysis.",
   xhigh:
     "Difficult synthesis across subsystems or conflicting evidence, with subtle invariants or failure paths. Substantial reasoning is needed to discriminate plausible solutions.",
-  max: "Exceptionally demanding reasoning from first principles, a novel algorithm, or a proof-like correctness argument. Additional computation is justified by the unresolved work.",
 };
 
 export function eligibleRoutes(models) {
@@ -45,7 +44,7 @@ export function eligibleRoutes(models) {
     }
   }
   if (!routes.length)
-    throw new Error("No available GPT-6 model and effort routes through Max");
+    throw new Error("No available GPT-6 model and effort routes through XHigh");
   return routes;
 }
 

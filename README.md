@@ -20,7 +20,7 @@
 
 **Astra-Ares lets Jev choose a GPT-6 model and reasoning effort before each Codex generation.** Jev reads bounded task context, chooses an available Astra, Sol, or Luna route, and decides how many generations to retain that choice. Codex applies the pair while work continues.
 
-The model catalog supplies each model's available reasoning levels. Jev only sees supported pairs through Max. **Ultra is available only when you explicitly select Astra or Sol outside Jev-Auto.** Codex retains its native conversation, tools, approvals, and direct OpenAI connection.
+The model catalog supplies each model's available reasoning levels. Jev only sees supported pairs through XHigh. **Max and Ultra require an explicit model and effort selection outside Jev-Auto.** Codex retains its native conversation, tools, approvals, and direct OpenAI connection.
 
 ## Get started
 
@@ -87,7 +87,8 @@ ares doctor                    # check installation and configuration locally
 ares doctor --probe            # make one small, billable Jev request
 ```
 
-Codex still owns the terminal UI, tools, approvals, cancellation, and history. Choose an ordinary model in `/model` to work without Jev routing or to select Ultra manually where supported. Ares uses a separate Codex profile; resuming refers to that profile's sessions.
+Codex still owns the terminal UI, tools, approvals, cancellation, and history. Choose an ordinary model in `/model` to work without Jev routing or to select Max or Ultra manually where supported. Ares uses a separate Codex profile; resuming refers to that profile's sessions.
+When Jev-Auto is selected, `/clear` starts a new conversation with Jev-Auto still selected. Jev makes a fresh model and effort choice for its first reply.
 
 ## How it works
 

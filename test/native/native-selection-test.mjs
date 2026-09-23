@@ -39,6 +39,11 @@ const luna = {
 astra.node_repl_auto_review_required = true;
 sol.node_repl_auto_review_required = true;
 luna.node_repl_auto_review_required = false;
+for (const model of [astra, sol, luna])
+  model.supported_reasoning_levels.push({
+    effort: "xhigh",
+    description: "xhigh",
+  });
 astra.supported_reasoning_levels.push(
   { effort: "max", description: "max" },
   { effort: "ultra", description: "ultra" },
@@ -72,7 +77,7 @@ const server = Bun.serve({
         body.model,
         phase === "all-models"
           ? ["gpt-6-luna", "gpt-6-sol", "gpt-6-astra"][turnStep]
-          : phase === "manual-ultra"
+          : phase === "manual-ultra" || phase === "manual-max"
             ? "gpt-6-sol"
             : phase === "unsafe-catalog"
               ? "gpt-6-luna"
@@ -128,11 +133,16 @@ const bridge = new Bridge({
   jev: {
     decide: async (state) => {
       states.push({ phase, state });
-      if (phase === "invalid-ultra" || phase === "invalid-model")
+      if (["invalid-ultra", "invalid-max", "invalid-model"].includes(phase))
         return {
           targetModel:
-            phase === "invalid-ultra" ? "gpt-6-astra" : "another-model",
-          effort: phase === "invalid-ultra" ? "ultra" : "low",
+            phase === "invalid-model" ? "another-model" : "gpt-6-astra",
+          effort:
+            phase === "invalid-ultra"
+              ? "ultra"
+              : phase === "invalid-max"
+                ? "max"
+                : "low",
           leaseSteps: 1,
           jevMs: 0,
         };
@@ -147,7 +157,7 @@ const bridge = new Bridge({
         const routes = [
           { targetModel: "gpt-6-luna", effort: "low" },
           { targetModel: "gpt-6-sol", effort: "high" },
-          { targetModel: "gpt-6-astra", effort: "max" },
+          { targetModel: "gpt-6-astra", effort: "xhigh" },
         ];
         return {
           ...routes[state.step - 1],
@@ -383,7 +393,7 @@ try {
   );
   assert.deepEqual(
     routedRequests.map((r) => effectiveEffort(r.body)),
-    ["low", "high", "max"],
+    ["low", "high", "xhigh"],
   );
   assert(
     routedRequests[1].body.input.some((item) =>
@@ -403,7 +413,7 @@ try {
   assert.equal(resumedAuto.model, "Jev-Auto");
   assert.equal((await run(routed.thread.id, "all-models")).status, "completed");
   const beforeInvalid = requests.length;
-  for (const invalid of ["invalid-ultra", "invalid-model"]) {
+  for (const invalid of ["invalid-ultra", "invalid-max", "invalid-model"]) {
     const failedRoute = await run(routed.thread.id, invalid);
     assert.equal(failedRoute.status, "failed");
     assert.match(failedRoute.error.message, /unsupported/);
@@ -427,6 +437,13 @@ try {
   );
   assert.equal(states.length, beforeManual, "manual Ultra must bypass Jev");
   assert.equal(requests.at(-1).body.model, "gpt-6-sol");
+  await rpc.call("thread/settings/update", {
+    threadId: manual.thread.id,
+    model: "gpt-6-sol",
+    effort: "max",
+  });
+  assert.equal((await run(manual.thread.id, "manual-max")).status, "completed");
+  assert.equal(states.length, beforeManual, "manual Max must bypass Jev");
   rpc.stop();
   writeFileSync(
     join(evidence, "models.json"),
@@ -458,6 +475,7 @@ try {
     routedHistoryPreserved: true,
     autoSelectionPersistsAcrossRestart: true,
     manualUltraBypassesJev: true,
+    manualMaxBypassesJev: true,
     invalidAutomaticRoutesFailBeforeInference: true,
     unsafeRouteExcludedBeforeJev: true,
     aliasNeverSentToProvider: true,
