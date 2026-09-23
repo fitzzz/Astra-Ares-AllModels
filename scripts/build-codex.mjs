@@ -34,7 +34,11 @@ export async function buildCodex(home) {
   const patch = join(root, "patches/native-checkpoint.patch");
   if (hash(patch) !== meta.patchSha256)
     throw new Error("Codex patch checksum mismatch");
-  const build = join(home, "build", `${meta.commit}-${meta.patchSha256.slice(0, 12)}`),
+  const build = join(
+      home,
+      "build",
+      `${meta.commit}-${meta.patchSha256.slice(0, 12)}`,
+    ),
     source = join(build, "source");
   mkdirSync(build, { recursive: true, mode: 0o700 });
   const archive = join(build, "source.tar.gz");

@@ -24,13 +24,29 @@ const astra = structuredClone(
   catalog.models.find((m) => m.slug === "gpt-6-astra"),
 );
 astra.use_responses_lite = true;
-const sol = { ...structuredClone(astra), slug: "gpt-6-sol", display_name: "Fixture Sol", priority: 1 };
-const luna = { ...structuredClone(astra), slug: "gpt-6-luna", display_name: "Fixture Luna", priority: 2 };
+const sol = {
+  ...structuredClone(astra),
+  slug: "gpt-6-sol",
+  display_name: "Fixture Sol",
+  priority: 1,
+};
+const luna = {
+  ...structuredClone(astra),
+  slug: "gpt-6-luna",
+  display_name: "Fixture Luna",
+  priority: 2,
+};
 astra.node_repl_auto_review_required = true;
 sol.node_repl_auto_review_required = true;
 luna.node_repl_auto_review_required = false;
-astra.supported_reasoning_levels.push({ effort: "max", description: "max" }, { effort: "ultra", description: "ultra" });
-sol.supported_reasoning_levels.push({ effort: "max", description: "max" }, { effort: "ultra", description: "ultra" });
+astra.supported_reasoning_levels.push(
+  { effort: "max", description: "max" },
+  { effort: "ultra", description: "ultra" },
+);
+sol.supported_reasoning_levels.push(
+  { effort: "max", description: "max" },
+  { effort: "ultra", description: "ultra" },
+);
 luna.supported_reasoning_levels.push({ effort: "max", description: "max" });
 writeFileSync(
   join(evidence, "models.json"),
@@ -52,10 +68,17 @@ const server = Bun.serve({
       if (request.headers.get("content-encoding") === "zstd")
         bytes = Bun.zstdDecompressSync(bytes);
       const body = JSON.parse(bytes);
-      assert.equal(body.model, phase === "all-models"
-        ? ["gpt-6-luna", "gpt-6-sol", "gpt-6-astra"][turnStep]
-        : phase === "manual-ultra" ? "gpt-6-sol" : "gpt-6-astra",
-      "native route must reach the provider");
+      assert.equal(
+        body.model,
+        phase === "all-models"
+          ? ["gpt-6-luna", "gpt-6-sol", "gpt-6-astra"][turnStep]
+          : phase === "manual-ultra"
+            ? "gpt-6-sol"
+            : phase === "unsafe-catalog"
+              ? "gpt-6-luna"
+              : "gpt-6-astra",
+        "native route must reach the provider",
+      );
       requests.push({ phase, body });
       turnStep++;
       const item =
@@ -105,15 +128,41 @@ const bridge = new Bridge({
   jev: {
     decide: async (state) => {
       states.push({ phase, state });
+      if (phase === "invalid-ultra" || phase === "invalid-model")
+        return {
+          targetModel:
+            phase === "invalid-ultra" ? "gpt-6-astra" : "another-model",
+          effort: phase === "invalid-ultra" ? "ultra" : "low",
+          leaseSteps: 1,
+          jevMs: 0,
+        };
+      if (phase === "unsafe-catalog")
+        return {
+          targetModel: "gpt-6-luna",
+          effort: "low",
+          leaseSteps: 1,
+          jevMs: 0,
+        };
       if (phase === "all-models") {
         const routes = [
           { targetModel: "gpt-6-luna", effort: "low" },
           { targetModel: "gpt-6-sol", effort: "high" },
           { targetModel: "gpt-6-astra", effort: "max" },
         ];
-        return { ...routes[state.step - 1], leaseSteps: 1, jevMs: 0, cost: "0" };
+        return {
+          ...routes[state.step - 1],
+          leaseSteps: 1,
+          jevMs: 0,
+          cost: "0",
+        };
       }
-      return { targetModel: state.model, effort: "low", leaseSteps: 10, jevMs: 0, cost: "0" };
+      return {
+        targetModel: state.model,
+        effort: "low",
+        leaseSteps: 10,
+        jevMs: 0,
+        cost: "0",
+      };
     },
   },
 });
@@ -153,7 +202,13 @@ async function connect(withBridge = true) {
     if (m.method === "turn/completed") finish(m.params.turn);
     else if (m.method === "item/tool/call") {
       if (phase === "all-models") {
-        rpc.send({ id: m.id, result: { success: true, contentItems: [{ type: "inputText", text: "Next step." }] } });
+        rpc.send({
+          id: m.id,
+          result: {
+            success: true,
+            contentItems: [{ type: "inputText", text: "Next step." }],
+          },
+        });
         return;
       }
       rpc
@@ -306,30 +361,93 @@ try {
     cwd: evidence,
     approvalPolicy: "never",
     sandbox: "read-only",
-    dynamicTools: [{
-      type: "function", name: "switch_fixture", description: "Continue the fixture",
-      inputSchema: { type: "object", properties: { step: { type: "integer" } }, required: ["step"], additionalProperties: false },
-    }],
+    dynamicTools: [
+      {
+        type: "function",
+        name: "switch_fixture",
+        description: "Continue the fixture",
+        inputSchema: {
+          type: "object",
+          properties: { step: { type: "integer" } },
+          required: ["step"],
+          additionalProperties: false,
+        },
+      },
+    ],
   });
   assert.equal((await run(routed.thread.id, "all-models")).status, "completed");
   const routedRequests = requests.filter((r) => r.phase === "all-models");
-  assert.deepEqual(routedRequests.map((r) => r.body.model), ["gpt-6-luna", "gpt-6-sol", "gpt-6-astra"]);
-  assert.deepEqual(routedRequests.map((r) => effectiveEffort(r.body)), ["low", "high", "max"]);
-  assert(routedRequests[1].body.input.some((item) => JSON.stringify(item).includes("switch-1")));
-  assert(routedRequests[2].body.input.some((item) => JSON.stringify(item).includes("switch-2")));
+  assert.deepEqual(
+    routedRequests.map((r) => r.body.model),
+    ["gpt-6-luna", "gpt-6-sol", "gpt-6-astra"],
+  );
+  assert.deepEqual(
+    routedRequests.map((r) => effectiveEffort(r.body)),
+    ["low", "high", "max"],
+  );
+  assert(
+    routedRequests[1].body.input.some((item) =>
+      JSON.stringify(item).includes("switch-1"),
+    ),
+  );
+  assert(
+    routedRequests[2].body.input.some((item) =>
+      JSON.stringify(item).includes("switch-2"),
+    ),
+  );
   rpc.stop();
   await connect();
-  const resumedAuto = await rpc.call("thread/resume", { threadId: routed.thread.id });
+  const resumedAuto = await rpc.call("thread/resume", {
+    threadId: routed.thread.id,
+  });
   assert.equal(resumedAuto.model, "Jev-Auto");
   assert.equal((await run(routed.thread.id, "all-models")).status, "completed");
+  const beforeInvalid = requests.length;
+  for (const invalid of ["invalid-ultra", "invalid-model"]) {
+    const failedRoute = await run(routed.thread.id, invalid);
+    assert.equal(failedRoute.status, "failed");
+    assert.match(failedRoute.error.message, /unsupported/);
+    assert.equal(requests.length, beforeInvalid);
+  }
   const manual = await rpc.call("thread/start", {
-    model: "gpt-6-sol", cwd: evidence, approvalPolicy: "never", sandbox: "read-only",
+    model: "gpt-6-sol",
+    cwd: evidence,
+    approvalPolicy: "never",
+    sandbox: "read-only",
   });
-  await rpc.call("thread/settings/update", { threadId: manual.thread.id, model: "gpt-6-sol", effort: "ultra" });
+  await rpc.call("thread/settings/update", {
+    threadId: manual.thread.id,
+    model: "gpt-6-sol",
+    effort: "ultra",
+  });
   const beforeManual = states.length;
-  assert.equal((await run(manual.thread.id, "manual-ultra")).status, "completed");
+  assert.equal(
+    (await run(manual.thread.id, "manual-ultra")).status,
+    "completed",
+  );
   assert.equal(states.length, beforeManual, "manual Ultra must bypass Jev");
   assert.equal(requests.at(-1).body.model, "gpt-6-sol");
+  rpc.stop();
+  writeFileSync(
+    join(evidence, "models.json"),
+    JSON.stringify({
+      models: [{ ...astra, node_repl_disabled: true }, sol, luna],
+    }),
+  );
+  await connect();
+  const unsafe = await rpc.call("thread/start", {
+    model: "Jev-Auto",
+    cwd: evidence,
+    approvalPolicy: "never",
+    sandbox: "read-only",
+  });
+  assert.equal(
+    (await run(unsafe.thread.id, "unsafe-catalog")).status,
+    "completed",
+  );
+  assert(
+    !states.at(-1).state.models.some((model) => model.slug === "gpt-6-astra"),
+  );
   assert.deepEqual(failures, []);
   const result = {
     passed: true,
@@ -340,6 +458,8 @@ try {
     routedHistoryPreserved: true,
     autoSelectionPersistsAcrossRestart: true,
     manualUltraBypassesJev: true,
+    invalidAutomaticRoutesFailBeforeInference: true,
+    unsafeRouteExcludedBeforeJev: true,
     aliasNeverSentToProvider: true,
     plainModelZeroJevCalls: true,
     selectionPersistsAcrossRestart: true,

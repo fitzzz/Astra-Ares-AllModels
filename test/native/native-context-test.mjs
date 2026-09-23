@@ -187,7 +187,13 @@ controller = new Bridge({
   jev: {
     decide: async (state) => {
       states.push(state);
-      return { targetModel: state.model, effort: "low", leaseSteps: 1, jevMs: 0, cost: "0" };
+      return {
+        targetModel: state.model,
+        effort: "low",
+        leaseSteps: 1,
+        jevMs: 0,
+        cost: "0",
+      };
     },
   },
 });

@@ -14633,7 +14633,7 @@ index 9252c89..3b4cbc9 100644
          for contributor in self.services.extensions.turn_lifecycle_contributors() {
              contributor
 diff --git c/codex-rs/core/src/session/step_activation.rs w/codex-rs/core/src/session/step_activation.rs
-index 9a4e461..df68799 100644
+index 9a4e461..cdc8954 100644
 --- c/codex-rs/core/src/session/step_activation.rs
 +++ w/codex-rs/core/src/session/step_activation.rs
 @@ -31,8 +31,7 @@ fn check_legacy_turn_safety(
@@ -14657,7 +14657,50 @@ index 9a4e461..df68799 100644
          || required_review != admitted_required_review
      {
          return Err("the destination changes model-required approval authority".to_string());
-@@ -237,6 +234,33 @@ impl Session {
+@@ -223,6 +220,42 @@ fn check_legacy_model_safety(
+ }
+ 
+ impl Session {
++    /// Check the same model-owned restrictions used at publication before Jev sees a route.
++    pub(super) async fn jev_route_supported(
++        &self,
++        turn: &TurnContext,
++        current: &ResolvedStepSettings,
++        model: &str,
++        effort: codex_protocol::openai_models::ReasoningEffort,
++    ) -> bool {
++        let update = StepSettingsUpdate {
++            routed_model: Some(model.to_string()),
++            effort: Some(Some(effort)),
++            ..Default::default()
++        };
++        let Ok(destination) = self
++            .prepare_step_settings_activation(turn, current, &update)
++            .await
++        else {
++            return false;
++        };
++        if destination.model_info.slug != model
++            || destination.model_info.used_fallback_model_metadata
++        {
++            return false;
++        }
++        let state = self.state.lock().await;
++        self.validate_active_step_settings(turn, &destination, &state.session_configuration)
++            .is_ok()
++            && check_legacy_turn_safety(
++                turn,
++                current,
++                &destination,
++                &state.session_configuration.original_config_do_not_use,
++            )
++            .is_ok()
++    }
++
+     /// Publishes settings to the named, originally captured live task, regardless
+     /// of task kind. Publication does not propagate to child sessions or require
+     /// the task to sample; consumers using initial settings remain unchanged.
+@@ -237,6 +270,33 @@ impl Session {
          &self,
          turn_id: &str,
          update: TurnSettingsUpdate,
@@ -14691,7 +14734,7 @@ index 9a4e461..df68799 100644
      ) -> TurnSettingsUpdateOutcome {
          let reviewer_only = update.approvals_reviewer.is_some()
              && update.model.is_none()
-@@ -280,6 +304,7 @@ impl Session {
+@@ -280,6 +340,7 @@ impl Session {
          let update = StepSettingsUpdate {
              approvals_reviewer,
              model,
@@ -14699,7 +14742,7 @@ index 9a4e461..df68799 100644
              effort,
              reasoning_summary: summary,
              service_tier,
-@@ -309,6 +334,24 @@ impl Session {
+@@ -309,6 +370,24 @@ impl Session {
              Ok(destination) => destination,
              Err(reason) => return TurnSettingsUpdateOutcome::Rejected { reason },
          };
@@ -14726,10 +14769,10 @@ index 9a4e461..df68799 100644
          // and active_turn; no asynchronous preparation runs under these locks.
 diff --git c/codex-rs/core/src/session/step_controller.rs w/codex-rs/core/src/session/step_controller.rs
 new file mode 100644
-index 0000000..a375227
+index 0000000..17dc031
 --- /dev/null
 +++ w/codex-rs/core/src/session/step_controller.rs
-@@ -0,0 +1,394 @@
+@@ -0,0 +1,396 @@
 +//! Opt-in evaluator bridge for every native CLI frontend. The bridge selects an
 +//! model and effort; core applies both through the live settings path.
 +
@@ -14799,7 +14842,6 @@ index 0000000..a375227
 +#[serde(rename_all = "camelCase")]
 +struct ModelCapability {
 +    slug: String,
-+    available: bool,
 +    supported_efforts: Vec<ReasoningEffort>,
 +}
 +
@@ -14971,10 +15013,13 @@ index 0000000..a375227
 +                    )
 +                })
 +                .collect::<Vec<_>>();
-+            if !supported_efforts.is_empty() {
++            if !supported_efforts.is_empty()
++                && session
++                    .jev_route_supported(turn, &current, slug, supported_efforts[0].clone())
++                    .await
++            {
 +                models.push(ModelCapability {
 +                    slug: slug.to_string(),
-+                    available: true,
 +                    supported_efforts,
 +                });
 +            }
@@ -15125,27 +15170,33 @@ index 0000000..a375227
 +    }
 +}
 diff --git c/codex-rs/core/src/session/step_settings.rs w/codex-rs/core/src/session/step_settings.rs
-index c915037..3c18b3c 100644
+index c915037..1496715 100644
 --- c/codex-rs/core/src/session/step_settings.rs
 +++ w/codex-rs/core/src/session/step_settings.rs
-@@ -132,8 +132,14 @@ impl ResolvedStepSettings {
+@@ -132,8 +132,20 @@ impl ResolvedStepSettings {
          fast_mode_enabled: bool,
      ) -> ConstraintResult<Self> {
          let selected = self.selected.apply(update, constraints)?;
 -        let model_info = if selected.collaboration_mode.model()
 -            == self.selected.collaboration_mode.model()
 +        let model_info = if let Some(routed_model) = update.routed_model.as_deref() {
-+            let config = overrides.models_manager_config(selected.personality);
-+            let mut target = models_manager.get_model_info(routed_model, &config).await;
-+            // Retained turn consumers still use the admitted node REPL review bit.
-+            // Keep the stricter requirement when Jev routes to a model that omits it.
-+            target.node_repl_auto_review_required |= self.model_info.node_repl_auto_review_required;
-+            Arc::new(target)
++            if routed_model == self.model_info.slug.as_str()
++                && selected.personality == self.selected.personality
++            {
++                Arc::clone(&self.model_info)
++            } else {
++                let config = overrides.models_manager_config(selected.personality);
++                let mut target = models_manager.get_model_info(routed_model, &config).await;
++                // Retained turn consumers still use the admitted node REPL review bit.
++                target.node_repl_auto_review_required |=
++                    self.model_info.node_repl_auto_review_required;
++                Arc::new(target)
++            }
 +        } else if selected.collaboration_mode.model() == self.selected.collaboration_mode.model()
              && selected.personality == self.selected.personality
          {
              Arc::clone(&self.model_info)
-@@ -221,6 +227,8 @@ impl ModelInfoOverrides {
+@@ -221,6 +233,8 @@ impl ModelInfoOverrides {
  #[derive(Clone, Debug, Default, PartialEq)]
  pub(crate) struct StepSettingsUpdate {
      pub(crate) model: Option<String>,
@@ -15691,7 +15742,7 @@ index 2155103..3a19cd3 100644
          let supported = &preset.supported_reasoning_efforts;
          let in_plan_mode =
 diff --git c/codex-rs/tui/src/chatwidget/protocol.rs w/codex-rs/tui/src/chatwidget/protocol.rs
-index 97e447e..c249ec5 100644
+index 97e447e..06082ff 100644
 --- c/codex-rs/tui/src/chatwidget/protocol.rs
 +++ w/codex-rs/tui/src/chatwidget/protocol.rs
 @@ -223,6 +223,52 @@ impl ChatWidget {
@@ -15724,7 +15775,7 @@ index 97e447e..c249ec5 100644
 +                        format!("{model} / {} → {target}", effort.to_uppercase())
 +                    }
 +                    (Some(model), None) => format!("{model} → {target}"),
-+                    (None, Some(effort)) if effort != &notification.to_effort => {
++                    (None, Some(effort)) => {
 +                        format!("{} → {target}", effort.to_uppercase())
 +                    }
 +                    _ => target,

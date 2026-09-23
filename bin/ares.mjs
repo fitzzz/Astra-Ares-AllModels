@@ -14,7 +14,7 @@ import {
 import { verifyBinary } from "../src/launch.mjs";
 import { Jev } from "../src/jev.mjs";
 import { buildCodex } from "../scripts/build-codex.mjs";
-const help = `Astra-Ares — Adaptive Reasoning Effort Selection
+const help = `Astra-Ares — Adaptive GPT-6 model and reasoning selection
 
 ares setup [--binary /path/to/patched/codex] [--provider vercel|typesafe|openrouter]
 ares configure [--provider vercel|typesafe|openrouter] [--key-stdin]
@@ -70,8 +70,18 @@ try {
     if (options.binary) {
       config.codexBinary = resolve(options.binary);
       verifyBinary(config.codexBinary);
-    } else if (!existsSync(config.codexBinary ?? paths.binary))
-      await buildCodex(paths.home);
+    } else {
+      const binary = config.codexBinary ?? paths.binary;
+      try {
+        verifyBinary(binary);
+      } catch (error) {
+        if (binary !== paths.binary)
+          throw new Error(
+            `Configured codexBinary is incompatible: ${error.message} Remove codexBinary from ${paths.config} to build the managed binary.`,
+          );
+        await buildCodex(paths.home);
+      }
+    }
     verifyBinary(config.codexBinary ?? paths.binary);
     saveConfig(paths.config, config);
     console.log(
@@ -124,8 +134,8 @@ try {
         provider: config.provider,
         maxLeaseSteps: config.maxLeaseSteps,
       }).decide({
-        model: "gpt-6-astra",
-        supportedEfforts: ["low", "medium", "high"],
+        model: "gpt-6-luna",
+        models: [{ slug: "gpt-6-luna", supportedEfforts: ["low", "medium"] }],
         latestUserPrompt: "Reply READY.",
         publicNotes: [],
         recentToolCalls: [],
@@ -136,6 +146,7 @@ try {
             probe: "passed",
             provider: decision.provider,
             model: decision.evaluatedModel,
+            targetModel: decision.targetModel,
             effort: decision.effort,
             usage: decision.usage,
             attempts: decision.attempts,

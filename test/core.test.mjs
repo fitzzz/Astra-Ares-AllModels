@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Jev, validateDecision, decisionRequest, eligibleRoutes } from "../src/jev.mjs";
+import {
+  Jev,
+  validateDecision,
+  decisionRequest,
+  eligibleRoutes,
+} from "../src/jev.mjs";
 import { TurnEvaluator } from "../src/bridge.mjs";
 import { budgetToolOutputs, outputTokens } from "../src/tool-output-budget.mjs";
 import { validateConfig, readKey } from "../src/config.mjs";
@@ -24,9 +29,9 @@ const success = {
 const state = {
   model: "gpt-6-astra",
   models: [
-    { slug: "gpt-6-luna", available: true, supportedEfforts: ["low", "high", "max"] },
-    { slug: "gpt-6-sol", available: true, supportedEfforts: ["low", "medium", "ultra"] },
-    { slug: "gpt-6-astra", available: true, supportedEfforts: ["low", "high", "ultra"] },
+    { slug: "gpt-6-luna", supportedEfforts: ["low", "high", "max"] },
+    { slug: "gpt-6-sol", supportedEfforts: ["low", "medium", "ultra"] },
+    { slug: "gpt-6-astra", supportedEfforts: ["low", "high", "ultra"] },
   ],
   latestUserPrompt: "Review task",
   publicNotes: [],
@@ -44,22 +49,48 @@ test("Jev sees only advertised GPT-6 routes through Max", () => {
   assert.throws(() => eligibleRoutes([]), /No available/);
 });
 test("Jev cannot return a pair absent from this checkpoint", () => {
-  for (const route of ["gpt-6-sol:high", "gpt-6-astra:ultra", "gpt-6-luna:none"])
-    assert.throws(() => validateDecision({
-      ...success,
-      answers: { ...success.answers, route: { type: "choice", choice: route } },
-    }, state), /invalid route/);
+  for (const route of [
+    "gpt-6-sol:high",
+    "gpt-6-astra:ultra",
+    "gpt-6-luna:none",
+  ])
+    assert.throws(
+      () =>
+        validateDecision(
+          {
+            ...success,
+            answers: {
+              ...success.answers,
+              route: { type: "choice", choice: route },
+            },
+          },
+          state,
+        ),
+      /invalid route/,
+    );
 });
 test("native acknowledgement must confirm the chosen model and effort", async () => {
   const evaluator = new TurnEvaluator({
     record: () => {},
-    jev: { decide: async () => ({ targetModel: "gpt-6-sol", effort: "medium", leaseSteps: 2 }) },
+    jev: {
+      decide: async () => ({
+        targetModel: "gpt-6-sol",
+        effort: "medium",
+        leaseSteps: 2,
+      }),
+    },
   });
   const decision = await evaluator.handle(checkpoint(1));
-  await assert.rejects(evaluator.handle({
-    ...decision, type: "applied", model: "gpt-6-astra", effort: "medium",
-    confirmation: "native_step_context_captured",
-  }), /confirmation does not match/);
+  await assert.rejects(
+    evaluator.handle({
+      ...decision,
+      type: "applied",
+      model: "gpt-6-astra",
+      effort: "medium",
+      confirmation: "native_step_context_captured",
+    }),
+    /confirmation does not match/,
+  );
 });
 test("gateway diagnostics retain sanitized upstream capacity evidence", () => {
   const secret = "vck_provider_fixture";
@@ -128,14 +159,21 @@ for (const leaseSteps of [1, 2, 5, 10])
       jev: {
         decide: async () => {
           calls++;
-          return { targetModel: "gpt-6-luna", effort: "low", leaseSteps, jevMs: 1 };
+          return {
+            targetModel: "gpt-6-luna",
+            effort: "low",
+            leaseSteps,
+            jevMs: 1,
+          };
         },
       },
     });
     for (let step = 1; step <= leaseSteps + 1; step++) {
-      const d = await e.handle(checkpoint(step, {
-        model: step === 1 ? "gpt-6-astra" : "gpt-6-luna",
-      }));
+      const d = await e.handle(
+        checkpoint(step, {
+          model: step === 1 ? "gpt-6-astra" : "gpt-6-luna",
+        }),
+      );
       await e.handle({
         ...d,
         type: "applied",
@@ -165,7 +203,12 @@ for (const [label, change] of Object.entries({
       jev: {
         decide: async () => {
           calls++;
-          return { targetModel: "gpt-6-luna", effort: "low", leaseSteps: 10, jevMs: 1 };
+          return {
+            targetModel: "gpt-6-luna",
+            effort: "low",
+            leaseSteps: 10,
+            jevMs: 1,
+          };
         },
       },
     });
@@ -392,7 +435,10 @@ test("OpenRouter rejects another provider or an unrequested model version", () =
     model: "typesafe/jev-1.13",
     provider: "TypeSafe",
   };
-  assert.equal(validateDecision(response, state, 10, "openrouter").effort, "low");
+  assert.equal(
+    validateDecision(response, state, 10, "openrouter").effort,
+    "low",
+  );
   for (const change of [
     { provider: "Other" },
     { provider: undefined },
@@ -426,23 +472,29 @@ test("local context overflow sends no network request", async () => {
 });
 test("invalid decision cannot be substituted with a guessed effort", () => {
   assert.throws(() =>
-    validateDecision({
-      ...success,
-      answers: {
-        ...success.answers,
-        route: { type: "choice", choice: "bad" },
-      },
-    }, state),
-  );
-  assert.throws(() =>
-    validateDecision({
-      ...success,
-      providerMetadata: {
-        gateway: {
-          routing: { canonicalSlug: "wrong", finalProvider: "typesafe-ai" },
+    validateDecision(
+      {
+        ...success,
+        answers: {
+          ...success.answers,
+          route: { type: "choice", choice: "bad" },
         },
       },
-    }, state),
+      state,
+    ),
+  );
+  assert.throws(() =>
+    validateDecision(
+      {
+        ...success,
+        providerMetadata: {
+          gateway: {
+            routing: { canonicalSlug: "wrong", finalProvider: "typesafe-ai" },
+          },
+        },
+      },
+      state,
+    ),
   );
 });
 test("config rejects ambiguity, typos and unsupported lease", () => {

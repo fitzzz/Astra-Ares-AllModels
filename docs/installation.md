@@ -61,6 +61,8 @@ astra-ares resume --last
 
 Config, credentials, and native sessions live outside the checkout. If a future release changes the pinned checkpoint, follow that release's build instructions; replacing the binary with stock Codex or using its self-update is unsupported. Remote, daemon, and desktop-app transports are outside this CLI integration.
 
+`ares setup` rebuilds an incompatible managed binary. If your configuration sets `codexBinary` to an external path, update that binary with `ares setup --binary /path/to/compatible/codex` or remove `codexBinary` to use the managed build.
+
 ## Remove
 
 For an installation linked with npm:

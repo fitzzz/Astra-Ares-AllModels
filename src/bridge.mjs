@@ -43,13 +43,20 @@ export class TurnEvaluator {
         type: "decision",
         confirmation: p.confirmation,
       });
-      if (this.previousModel === undefined || pending.previousModel !== p.model) {
+      if (
+        this.previousModel === undefined ||
+        pending.previousModel !== p.model
+      ) {
         this.record({
-          type: this.previousModel === undefined ? "model_selected" : "model_changed",
+          type:
+            this.previousModel === undefined
+              ? "model_selected"
+              : "model_changed",
           threadId: p.threadId,
           turnId: p.turnId,
           step: p.step,
-          from: pending.previousModel === p.model ? null : pending.previousModel,
+          from:
+            pending.previousModel === p.model ? null : pending.previousModel,
           to: p.model,
           confirmation: p.confirmation,
         });
@@ -142,7 +149,6 @@ export class TurnEvaluator {
         omittedOlderToolCalls: p.context.omittedOlderToolCalls,
         step: p.step,
         previousEffort: p.currentEffort,
-        previousModel: p.model,
         newToolFailures,
       };
       contextStats = {
@@ -177,7 +183,9 @@ export class TurnEvaluator {
     signal?.throwIfAborted();
     const d = this.decision;
     if (
-      !routes.some((route) => route.model === d.targetModel && route.effort === d.effort) ||
+      !routes.some(
+        (route) => route.model === d.targetModel && route.effort === d.effort,
+      ) ||
       ![1, 2, 5, 10].includes(d.leaseSteps)
     ) {
       throw new Error(
