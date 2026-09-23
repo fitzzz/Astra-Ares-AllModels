@@ -76,6 +76,7 @@ Jev  gpt-6-luna / LOW → gpt-6-sol / HIGH  ✓ APPLIED
 ```
 
 `APPLIED` means Codex confirmed the settings for the next generation. The notification is emitted after native application, not when Jev merely suggests a value.
+The first step of a new turn shows the chosen model without a "from" model. An arrow appears when Jev changes a model that was already selected earlier in that turn.
 
 ## Everyday use
 

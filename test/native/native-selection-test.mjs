@@ -60,6 +60,7 @@ writeFileSync(
 const states = [],
   records = [],
   requests = [],
+  notifications = [],
   failures = [];
 let phase = "plain",
   turnStep = 0;
@@ -210,6 +211,8 @@ async function connect(withBridge = true) {
   rpc.on("fault", (error) => rejectTurn?.(error));
   rpc.on("message", (m) => {
     if (m.method === "turn/completed") finish(m.params.turn);
+    else if (m.method === "turn/reasoningEffort/updated")
+      notifications.push(m.params);
     else if (m.method === "item/tool/call") {
       if (phase === "all-models") {
         rpc.send({
@@ -395,6 +398,21 @@ try {
     routedRequests.map((r) => effectiveEffort(r.body)),
     ["low", "high", "xhigh"],
   );
+  assert.deepEqual(
+    notifications
+      .filter((n) => n.threadId === routed.thread.id)
+      .map((n) => n.fromModel),
+    [null, "gpt-6-luna", "gpt-6-sol"],
+  );
+  assert.equal(
+    records.find(
+      (r) =>
+        r.threadId === routed.thread.id &&
+        r.type === "model_selected" &&
+        r.step === 1,
+    ).from,
+    null,
+  );
   assert(
     routedRequests[1].body.input.some((item) =>
       JSON.stringify(item).includes("switch-1"),
@@ -411,7 +429,9 @@ try {
     threadId: routed.thread.id,
   });
   assert.equal(resumedAuto.model, "Jev-Auto");
+  const noticesBeforeResume = notifications.length;
   assert.equal((await run(routed.thread.id, "all-models")).status, "completed");
+  assert.equal(notifications[noticesBeforeResume].fromModel, null);
   const beforeInvalid = requests.length;
   for (const invalid of ["invalid-ultra", "invalid-max", "invalid-model"]) {
     const failedRoute = await run(routed.thread.id, invalid);

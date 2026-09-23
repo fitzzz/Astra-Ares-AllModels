@@ -15134,11 +15134,11 @@ index 0000000..41658fd
 +            ));
 +        }
 +        let event = ReasoningEffortUpdatedEvent {
-+            from_model: (applied.previous_model != applied.model)
++            from_model: (self.sequence > 1 && applied.previous_model != applied.model)
 +                .then_some(applied.previous_model.clone()),
 +            to_model: applied.model.clone(),
-+            from_effort: applied
-+                .previous_effort
++            from_effort: self
++                .last_effort
 +                .as_ref()
 +                .filter(|effort| *effort != &applied.effort)
 +                .map(ToString::to_string),
