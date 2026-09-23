@@ -1,10 +1,10 @@
 # Configuration
 
-Run `ares configure` to save an OpenRouter key in a new installation. Run it again to replace the key for the current provider. Key entry is hidden and the config is written with mode `0600`.
+Run `ares configure` to save a TypeSafe key in a new installation. Run it again to replace the key for the current provider. Key entry is hidden and the config is written with mode `0600`.
 
 ```sh
 ares config-path
-ares configure --provider openrouter
+ares configure
 ares doctor
 ares doctor --probe
 ```
@@ -13,13 +13,13 @@ The last command makes one small, billable Jev request. Local `doctor` verifies 
 
 ## Providers
 
-| Explicit selection     | Evaluator                                  | Default key environment variable |
-| ---------------------- | ------------------------------------------ | -------------------------------- |
-| `openrouter` — default | `typesafe/jev-1.13`, native Decisions API  | `OPENROUTER_API_KEY`             |
-| `vercel`               | `typesafe-ai/jev`, AI Gateway Evaluate API | `AI_GATEWAY_API_KEY`             |
-| `typesafe`             | `jev-latest`, direct System One API        | `TYPESAFE_API_KEY`               |
+| Explicit selection   | Evaluator                                  | Default key environment variable |
+| -------------------- | ------------------------------------------ | -------------------------------- |
+| `openrouter`         | `typesafe/jev-1.13`, native Decisions API  | `OPENROUTER_API_KEY`             |
+| `vercel`             | `typesafe-ai/jev`, AI Gateway Evaluate API | `AI_GATEWAY_API_KEY`             |
+| `typesafe` — default | `jev-latest`, direct System One API        | `TYPESAFE_API_KEY`               |
 
-Use a key issued by the selected provider. Change routes with `ares configure --provider typesafe` or `ares configure --provider vercel`. Providers are never switched automatically. OpenRouter is live-tested with a funded key; direct TypeSafe has adapter contract tests but no live acceptance here. See [paid access](paid-access.md).
+Use a key issued by the selected provider. Change routes with `ares configure --provider openrouter` or `ares configure --provider vercel`. Providers are never switched automatically. Direct TypeSafe has adapter contract tests; run `ares doctor --probe` to verify live account access. A successful probe does not establish sustained capacity. See [paid access](paid-access.md).
 
 For a key supplied through a password manager, `ares configure --key-stdin` reads the secret from standard input without printing it.
 
@@ -29,8 +29,8 @@ Default: `~/.config/astra-ares/config.json`. `$XDG_CONFIG_HOME` is respected. An
 
 ```json
 {
-  "provider": "openrouter",
-  "apiKeyEnv": "OPENROUTER_API_KEY",
+  "provider": "typesafe",
+  "apiKeyEnv": "TYPESAFE_API_KEY",
   "maxLeaseSteps": 10
 }
 ```

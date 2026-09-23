@@ -1,5 +1,5 @@
 {
-  "provider": "openrouter",
-  "apiKeyEnv": "OPENROUTER_API_KEY",
+  "provider": "typesafe",
+  "apiKeyEnv": "TYPESAFE_API_KEY",
   "maxLeaseSteps": 10
 }

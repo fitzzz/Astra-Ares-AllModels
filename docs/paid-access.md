@@ -16,7 +16,7 @@ The adapter uses `POST https://openrouter.ai/api/alpha/decisions`, not a chat en
 
 The official [quick start](https://docs.typesafe.ai/introduction/quickstart) directs users to [console.typesafe.ai](https://console.typesafe.ai/) for a key. The [model reference](https://docs.typesafe.ai/models) lists pricing and rate-limit information. Account access is provider-controlled.
 
-Use `ares configure --provider typesafe` with a TypeSafe key. Vercel and OpenRouter keys do not authenticate to the direct TypeSafe endpoint. This adapter has contract-test coverage; live acceptance is still limited.
+Use `ares configure` with a TypeSafe key. Vercel and OpenRouter keys do not authenticate to the direct TypeSafe endpoint. This adapter has contract-test coverage; run `ares doctor --probe` to verify live access. Sustained capacity still depends on TypeSafe's service.
 
 ## Vercel AI Gateway
 

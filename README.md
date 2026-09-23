@@ -50,13 +50,13 @@ npm link
 
 ### 2. Add your Jev key
 
-Create an [OpenRouter API key](https://openrouter.ai/workspaces/default/keys) with [funded credits](https://openrouter.ai/settings/credits), then run:
+Create a direct TypeSafe API key in the [TypeSafe console](https://console.typesafe.ai/), then run:
 
 ```sh
 ares configure
 ```
 
-Paste the key into the hidden prompt. **OpenRouter is the default for new installs**. The key is saved in your private user configuration, outside the repository.
+Paste the key into the hidden prompt. **Direct TypeSafe is the default for new installs**. The key is saved in your private user configuration, outside the repository.
 
 The GPT-6 models use your existing **Codex login**, separately from the Jev key. If needed, sign in with `astra-ares login`. [Other Jev providers and environment variables →](docs/configuration.md)
 

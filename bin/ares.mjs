@@ -26,7 +26,7 @@ Config: $ARES_CONFIG or ~/.config/astra-ares/config.json
 Data:   $ARES_HOME or ~/.local/share/astra-ares
 setup builds an isolated pinned Codex. --binary adopts an already patched build.
 configure reads a key without echo; --key-stdin accepts a piped secret.
-New installations use OpenRouter. Existing configurations keep their provider.
+New installations use direct TypeSafe. Existing configurations keep their provider.
 Vercel: AI_GATEWAY_API_KEY. Direct TypeSafe: TYPESAFE_API_KEY.
 OpenRouter Decisions: OPENROUTER_API_KEY.
 `;
@@ -64,7 +64,7 @@ try {
   else if (command === "setup") {
     const config = existsSync(paths.config)
       ? readConfig(paths.config)
-      : { provider: options.provider ?? "openrouter", maxLeaseSteps: 10 };
+      : { provider: options.provider ?? "typesafe", maxLeaseSteps: 10 };
     if (options.provider) config.provider = options.provider;
     validateConfig(config);
     if (options.binary) {
@@ -90,7 +90,7 @@ try {
   } else if (command === "configure") {
     const config = existsSync(paths.config)
       ? readConfig(paths.config)
-      : { provider: "openrouter", maxLeaseSteps: 10 };
+      : { provider: "typesafe", maxLeaseSteps: 10 };
     if (options.provider) config.provider = options.provider;
     let key;
     if (options["key-stdin"]) key = readFileSync(0, "utf8").trim();

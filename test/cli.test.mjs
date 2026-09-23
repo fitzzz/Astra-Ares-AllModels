@@ -18,7 +18,7 @@ function invoke(args, env, input) {
     encoding: "utf8",
   });
 }
-for (const provider of ["vercel", "openrouter"])
+for (const provider of ["vercel", "openrouter", "typesafe"])
   test(`${provider} configure accepts a piped key, keeps it private and prints no secret`, () => {
     const dir = mkdtempSync(join(tmpdir(), "jev-config-"));
     const file = join(dir, "config.json");
@@ -49,16 +49,16 @@ test("unknown CLI options fail visibly", () => {
   assert.equal(r.status, 1);
   assert.match(r.stderr, /Unknown/);
 });
-test("new configurations default to OpenRouter; replacing a key preserves an explicit provider", () => {
+test("new configurations default to direct TypeSafe; replacing a key preserves an explicit provider", () => {
   const dir = mkdtempSync(join(tmpdir(), "ares-default-provider-"));
   const file = join(dir, "config.json");
   const env = { ARES_CONFIG: file, ARES_HOME: join(dir, "data") };
   try {
     const first = invoke(["configure", "--key-stdin"], env, "fixture-first\n");
     assert.equal(first.status, 0, first.stderr);
-    assert.equal(JSON.parse(readFileSync(file, "utf8")).provider, "openrouter");
+    assert.equal(JSON.parse(readFileSync(file, "utf8")).provider, "typesafe");
     const change = invoke(
-      ["configure", "--provider", "typesafe", "--key-stdin"],
+      ["configure", "--provider", "openrouter", "--key-stdin"],
       env,
       "fixture-second\n",
     );
@@ -70,7 +70,7 @@ test("new configurations default to OpenRouter; replacing a key preserves an exp
     );
     assert.equal(replace.status, 0, replace.stderr);
     const saved = JSON.parse(readFileSync(file, "utf8"));
-    assert.equal(saved.provider, "typesafe");
+    assert.equal(saved.provider, "openrouter");
     assert.equal(saved.apiKey, "fixture-third");
     const location = invoke(["config-path"], env);
     assert.equal(location.status, 0, location.stderr);
