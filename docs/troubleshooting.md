@@ -2,15 +2,15 @@
 
 Start with `ares doctor`, then `ares doctor --probe`. The second command makes one small real evaluator request. It does not invoke Astra.
 
-| Error category           | Meaning / next action                                                                                                                                                                           |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `local_context_limit`    | Nothing was sent. The whole request exceeded the local 28K guard despite bounded tool previews. Start a new focused turn/context or reduce the request; do not assume switching API keys helps. |
-| `context_limit`          | Provider explicitly returned a context-limit code. Preserve the request size/code in the log. The bridge does not retry an unchanged oversized request.                                         |
-| `rate_limit_or_capacity` | HTTP 429. Read `providerCode`, `providerMessage`, request ID, local tokens, and retry events. A small request can fail due to account rate limits or provider capacity.                         |
-| `quota`                  | Billing/credit/account budget rejection. Supply a funded or authorized key; no automatic retries or purchases.                                                                                  |
-| `authentication`         | Check the selected provider and its matching key. A Vercel key cannot authenticate directly to TypeSafe.                                                                                        |
-| `provider_unavailable`   | Transient upstream HTTP error; bounded retries are logged.                                                                                                                                      |
-| `timeout` / `network`    | The evaluator did not return within the deadline or transport failed. Current turn stops explicitly.                                                                                            |
+| Error category           | Meaning / next action                                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `local_context_limit`    | Nothing was sent. The request still exceeded the 28K guard after old notes and prior requests were removed. Shorten the current task; switching API keys does not change this local limit. |
+| `context_limit`          | Provider explicitly returned a context-limit code. Preserve the request size/code in the log. The bridge does not retry an unchanged oversized request.                                    |
+| `rate_limit_or_capacity` | HTTP 429. Read `providerCode`, `providerMessage`, request ID, local tokens, and retry events. A small request can fail due to account rate limits or provider capacity.                    |
+| `quota`                  | Billing/credit/account budget rejection. Supply a funded or authorized key; no automatic retries or purchases.                                                                             |
+| `authentication`         | Check the selected provider and its matching key. A Vercel key cannot authenticate directly to TypeSafe.                                                                                   |
+| `provider_unavailable`   | Transient upstream HTTP error; bounded retries are logged.                                                                                                                                 |
+| `timeout` / `network`    | The evaluator did not return within the deadline or transport failed. Current turn stops explicitly.                                                                                       |
 
 Transient status codes: 408, 429, 500, 502, 503, 504, 529. Maximum three attempts and a 30-second total deadline. Backoff begins at 500 ms with jitter. A server `Retry-After` that exceeds the deadline is reported without an early retry. No provider switch is made.
 

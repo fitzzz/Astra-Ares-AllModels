@@ -115,15 +115,15 @@ Jev also selects how long to keep its choice. If it selects ten generations, Are
 
 ### What Jev sees
 
-| Context                                                   | Limit                                                            |
-| --------------------------------------------------------- | ---------------------------------------------------------------- |
-| Original/current task and retained previous user requests | Preserved in the evaluator context                               |
-| Public progress, plans, and published reasoning summaries | Preserved; private/encrypted reasoning is excluded               |
-| Recent tool calls and paired results                      | Last **6** calls                                                 |
-| Combined result text for each call                        | **1,000 local tokens**, with explicit head/tail truncation       |
-| Complete evaluator request                                | **28,000 local-token guard**; oversized requests stop explicitly |
+| Context                                                   | Limit                                                                      |
+| --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Original/current task and retained previous user requests | Current task preserved; oldest prior requests omitted if needed            |
+| Public progress, plans, and published reasoning summaries | Oldest notes omitted if needed; private reasoning is excluded              |
+| Recent tool calls and paired results                      | Last **6** calls                                                           |
+| Combined result text for each call                        | **1,000 local tokens**, with explicit head/tail truncation                 |
+| Complete evaluator request                                | Historical view reduced toward **26,000** tokens; **28,000** guard remains |
 
-These limits apply to **Jev's view**. Codex keeps its native conversation. The local tokenizer is a budget estimate, not Jev's exact tokenizer. This bounded task context is sent to your selected Jev provider; [configuration and logs](docs/configuration.md) explain what is stored.
+These limits apply to **Jev's view**. Codex keeps its native conversation. When the request grows too large, Ares removes the oldest public notes, then oldest prior user requests, and records the omitted counts. The current and original turn prompts stay. The local tokenizer is a budget estimate, not Jev's exact tokenizer. This bounded task context is sent to your selected Jev provider; [configuration and logs](docs/configuration.md) explain what is stored.
 
 ### Native model changes
 

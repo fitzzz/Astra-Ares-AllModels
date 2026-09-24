@@ -471,6 +471,31 @@ test("local context overflow sends no network request", async () => {
     (e) => e.details.category === "local_context_limit",
   );
 });
+test("long retained history is bounded while the latest task and Codex history remain intact", async () => {
+  const notes = [
+    { kind: "assistant_message", text: "old context ".repeat(20000) },
+    { kind: "assistant_message", text: "Current progress remains relevant." },
+  ];
+  const records = [];
+  const j = new Jev({
+    apiKey: "fixture",
+    provider: "typesafe",
+    record: (event) => records.push(event),
+    fetchImpl: async (_url, options) => {
+      const sent = JSON.parse(options.body).state;
+      assert.equal(sent.latestUserPrompt, "Review task");
+      assert.deepEqual(sent.publicNotes, [notes[1]]);
+      assert.equal(sent.omittedOlderPublicNotes, 1);
+      return Response.json({ ...success, model: "jev-1.13.0" });
+    },
+  });
+  await j.decide({ ...state, publicNotes: notes });
+  assert.equal(notes.length, 2);
+  assert.equal(
+    records.find((event) => event.type === "context_bounded").publicNotes,
+    1,
+  );
+});
 test("invalid decision cannot be substituted with a guessed effort", () => {
   assert.throws(() =>
     validateDecision(

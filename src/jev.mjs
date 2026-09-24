@@ -183,8 +183,42 @@ export class Jev {
       request.provider = { only: ["typesafe"], allow_fallbacks: false };
       delete request.providerOptions;
     }
+    request.state = {
+      ...state,
+      ...(state.publicNotes && { publicNotes: [...state.publicNotes] }),
+      ...(state.priorUserPrompts && {
+        priorUserPrompts: [...state.priorUserPrompts],
+      }),
+    };
+    // Codex retains the full conversation. Bound only Jev's historical view.
+    const omitted = { publicNotes: 0, priorUserPrompts: 0 };
+    const tokens = () =>
+      countTokens(JSON.stringify(request), { disallowedSpecial: new Set() });
+    let localTokens = tokens();
+    const originalTokens = localTokens;
+    while (localTokens > 26_000 && request.state.publicNotes?.length > 1) {
+      request.state.publicNotes.shift();
+      omitted.publicNotes++;
+      localTokens = tokens();
+    }
+    while (localTokens > 26_000 && request.state.priorUserPrompts?.length) {
+      request.state.priorUserPrompts.shift();
+      omitted.priorUserPrompts++;
+      localTokens = tokens();
+    }
+    if (omitted.publicNotes || omitted.priorUserPrompts) {
+      request.state.omittedOlderPublicNotes = omitted.publicNotes;
+      request.state.omittedOlderUserPrompts = omitted.priorUserPrompts;
+      localTokens = tokens();
+      this.record({
+        type: "context_bounded",
+        ...trace,
+        originalTokens,
+        localTokens,
+        ...omitted,
+      });
+    }
     const body = JSON.stringify(request);
-    const localTokens = countTokens(body, { disallowedSpecial: new Set() });
     const requestStats = {
       requestBytes: Buffer.byteLength(body),
       localTokens,
